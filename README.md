@@ -40,6 +40,6 @@ O objetivo do StudyFlow é facilitar a organização acadêmica, permitindo que 
 
 ## 👨‍💻 Autor
 
-**Wendel Morais**
+**Wedne Morais**
 
 Desenvolvido para a disciplina de **Desenvolvimento Web — UEPB 2026.1**.
