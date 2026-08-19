@@ -328,6 +328,14 @@ input:focus-visible {
   transform: translateY(-1px);
 }
 
+.primary-button:disabled,
+.card > form > button[type="submit"]:disabled {
+  opacity: 0.65;
+  cursor: wait;
+  transform: none;
+  box-shadow: none;
+}
+
 .primary-button img {
   width: 12px;
   height: 12px;
@@ -761,6 +769,11 @@ button.dashboard-avatar-button {
 .profile-popover h3 {
   margin: 14px 0 8px;
   font-size: 14px;
+}
+
+.profile-list-status {
+  margin: 8px 0 0;
+  font-size: 13px;
 }
 
 .dashboard-users-list {

@@ -4,18 +4,20 @@ import { Link, useNavigate } from 'react-router'
 import FormField from './form/FormField'
 import PasswordToggle from './form/PasswordToggle'
 import SubmitButton from './form/SubmitButton'
+import { fazerLogin } from '../services/api'
 
-function Login({ usuarios, onLogin }) {
+function Login({ onLogin }) {
   const [email, setEmail] = useState(() => localStorage.getItem('studyflow-email') ?? '')
   const [senha, setSenha] = useState('')
   const [lembrar, setLembrar] = useState(() => Boolean(localStorage.getItem('studyflow-email')))
   const [mostrarSenha, setMostrarSenha] = useState(false)
   const [erros, setErros] = useState({})
+  const [carregando, setCarregando] = useState(false)
   const emailRef = useRef(null)
   const senhaRef = useRef(null)
   const navigate = useNavigate()
 
-  function handleSubmit(event) {
+  async function handleSubmit(event) {
     event.preventDefault()
 
     const emailLimpo = email.trim()
@@ -38,22 +40,23 @@ function Login({ usuarios, onLogin }) {
       return
     }
 
-    const usuario = usuarios.find(
-      (item) => item.email.toLowerCase() === emailLimpo.toLowerCase() && item.senha === senha,
-    )
-
-    if (!usuario) {
-      setErros({ formulario: 'E-mail ou senha inválidos. Confira os dados e tente novamente.' })
-      emailRef.current?.focus()
-      return
-    }
-
     setErros({})
-    if (lembrar) localStorage.setItem('studyflow-email', emailLimpo)
-    else localStorage.removeItem('studyflow-email')
+    setCarregando(true)
 
-    onLogin(usuario)
-    navigate('/home')
+    try {
+      const usuario = await fazerLogin(emailLimpo, senha)
+
+      if (lembrar) localStorage.setItem('studyflow-email', emailLimpo)
+      else localStorage.removeItem('studyflow-email')
+
+      onLogin(usuario)
+      navigate('/home')
+    } catch (error) {
+      setErros({ formulario: error.message })
+      emailRef.current?.focus()
+    } finally {
+      setCarregando(false)
+    }
   }
 
   return (
@@ -122,7 +125,9 @@ function Login({ usuarios, onLogin }) {
             </p>
           )}
 
-          <SubmitButton showArrow>Entrar</SubmitButton>
+          <SubmitButton showArrow disabled={carregando}>
+            {carregando ? 'Entrando...' : 'Entrar'}
+          </SubmitButton>
         </form>
 
         <p className="switch-page">

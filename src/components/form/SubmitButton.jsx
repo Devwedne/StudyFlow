@@ -1,8 +1,8 @@
 import { ArrowRight } from 'lucide-react'
 
-function SubmitButton({ children, showArrow = false }) {
+function SubmitButton({ children, showArrow = false, disabled = false }) {
   return (
-    <button className="primary-button" type="submit">
+    <button className="primary-button" type="submit" disabled={disabled}>
       <span>{children}</span>
       {showArrow && <ArrowRight aria-hidden="true" />}
     </button>

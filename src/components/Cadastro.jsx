@@ -2,16 +2,18 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router'
 import FormField from './form/FormField'
 import SubmitButton from './form/SubmitButton'
+import { cadastrarUsuario } from '../services/api'
 
-function Cadastro({ usuarios, onCadastrar }) {
+function Cadastro() {
   const [nome, setNome] = useState('')
   const [email, setEmail] = useState('')
   const [senha, setSenha] = useState('')
   const [confirmarSenha, setConfirmarSenha] = useState('')
   const [erro, setErro] = useState('')
+  const [carregando, setCarregando] = useState(false)
   const navigate = useNavigate()
 
-  function handleSubmit(event) {
+  async function handleSubmit(event) {
     event.preventDefault()
     setErro('')
 
@@ -28,13 +30,16 @@ function Cadastro({ usuarios, onCadastrar }) {
       return
     }
 
-    if (usuarios.some((usuario) => usuario.email.toLowerCase() === emailLimpo.toLowerCase())) {
-      setErro('Este e-mail já está cadastrado.')
-      return
-    }
+    setCarregando(true)
 
-    onCadastrar({ nome: nomeLimpo, email: emailLimpo, senha })
-    navigate('/login')
+    try {
+      await cadastrarUsuario({ nome: nomeLimpo, email: emailLimpo, senha })
+      navigate('/login')
+    } catch (error) {
+      setErro(error.message)
+    } finally {
+      setCarregando(false)
+    }
   }
 
   return (
@@ -52,7 +57,9 @@ function Cadastro({ usuarios, onCadastrar }) {
         <FormField id="cadastro-confirmar-senha" label="Confirmar senha" type="password" placeholder="Confirme sua senha" autoComplete="new-password" value={confirmarSenha} onChange={(event) => setConfirmarSenha(event.target.value)} />
 
         {erro && <p className="erro" role="alert">{erro}</p>}
-        <SubmitButton>Cadastrar</SubmitButton>
+        <SubmitButton disabled={carregando}>
+          {carregando ? 'Cadastrando...' : 'Cadastrar'}
+        </SubmitButton>
       </form>
 
       <p className="switch-page">

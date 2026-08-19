@@ -1,6 +1,6 @@
 import { UserRound } from 'lucide-react'
 
-function UserPopover({ usuarioLogado, usuarios }) {
+function UserPopover({ usuarioLogado, usuarios, carregando, erro }) {
   return (
     <section className="dashboard-popover profile-popover" aria-labelledby="perfil-titulo">
       <div className="profile-popover-heading">
@@ -11,14 +11,18 @@ function UserPopover({ usuarioLogado, usuarios }) {
         </span>
       </div>
       <h3>Usuários cadastrados ({usuarios.length})</h3>
-      <ul className="dashboard-users-list">
-        {usuarios.map((usuario) => (
-          <li key={usuario.id}>
-            <span className="dashboard-user-avatar" aria-hidden="true">{usuario.nome.charAt(0).toUpperCase()}</span>
-            <span><strong>{usuario.nome}</strong><small>{usuario.email}</small></span>
-          </li>
-        ))}
-      </ul>
+      {carregando && <p className="profile-list-status">Carregando...</p>}
+      {erro && <p className="profile-list-status form-error" role="alert">{erro}</p>}
+      {!carregando && !erro && (
+        <ul className="dashboard-users-list">
+          {usuarios.map((usuario) => (
+            <li key={usuario.id}>
+              <span className="dashboard-user-avatar" aria-hidden="true">{usuario.nome.charAt(0).toUpperCase()}</span>
+              <span><strong>{usuario.nome}</strong><small>{usuario.email}</small></span>
+            </li>
+          ))}
+        </ul>
+      )}
     </section>
   )
 }

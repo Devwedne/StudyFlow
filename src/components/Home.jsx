@@ -1,8 +1,9 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Bell, ClipboardList, Flag, Search, Timer, TrendingUp, UserRound } from 'lucide-react'
 import Sidebar from './Sidebar'
 import { ScheduleSection, StatisticsGrid, SubjectProgressSection, TasksSection } from './dashboard/DashboardSections'
 import UserPopover from './dashboard/UserPopover'
+import { listarUsuarios } from '../services/api'
 
 const estatisticas = [
   {
@@ -97,10 +98,32 @@ function contemTermo(valores, termo) {
   return valores.some((valor) => valor.toLocaleLowerCase('pt-BR').includes(termo))
 }
 
-function Home({ usuarioLogado, usuarios, onSair }) {
+function Home({ usuarioLogado, onSair }) {
   const [busca, setBusca] = useState('')
   const [notificacoesAbertas, setNotificacoesAbertas] = useState(false)
   const [perfilAberto, setPerfilAberto] = useState(false)
+  const [usuarios, setUsuarios] = useState([])
+  const [usuariosCarregando, setUsuariosCarregando] = useState(true)
+  const [usuariosErro, setUsuariosErro] = useState('')
+
+  useEffect(() => {
+    let ativo = true
+
+    listarUsuarios()
+      .then((dados) => {
+        if (ativo) setUsuarios(dados)
+      })
+      .catch((error) => {
+        if (ativo) setUsuariosErro(error.message)
+      })
+      .finally(() => {
+        if (ativo) setUsuariosCarregando(false)
+      })
+
+    return () => {
+      ativo = false
+    }
+  }, [])
 
   const termo = busca.trim().toLocaleLowerCase('pt-BR')
   const agendaFiltrada = useMemo(
@@ -162,7 +185,14 @@ function Home({ usuarioLogado, usuarios, onSair }) {
               </div>
             )}
 
-            {perfilAberto && <UserPopover usuarioLogado={usuarioLogado} usuarios={usuarios} />}
+            {perfilAberto && (
+              <UserPopover
+                usuarioLogado={usuarioLogado}
+                usuarios={usuarios}
+                carregando={usuariosCarregando}
+                erro={usuariosErro}
+              />
+            )}
 
           </div>
         </header>

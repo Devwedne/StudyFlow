@@ -7,19 +7,10 @@ import Materias from './components/Materias'
 import Trabalhos from './components/Trabalhos'
 import AccessLayout from './components/layout/AccessLayout'
 import ProtectedRoute from './components/layout/ProtectedRoute'
-import { usuariosIniciais } from './data/usuarios'
 import './App.css'
 
 function App() {
-  const [usuarios, setUsuarios] = useState(usuariosIniciais)
   const [usuarioLogado, setUsuarioLogado] = useState(null)
-
-  function cadastrar(novoUsuario) {
-    setUsuarios((usuariosAtuais) => {
-      const proximoId = Math.max(0, ...usuariosAtuais.map((usuario) => usuario.id)) + 1
-      return [...usuariosAtuais, { id: proximoId, ...novoUsuario }]
-    })
-  }
 
   return (
     <BrowserRouter>
@@ -29,7 +20,7 @@ function App() {
           path="/cadastro"
           element={(
             <AccessLayout>
-              <Cadastro usuarios={usuarios} onCadastrar={cadastrar} />
+              <Cadastro />
             </AccessLayout>
           )}
         />
@@ -37,7 +28,7 @@ function App() {
           path="/login"
           element={(
             <AccessLayout>
-              <Login usuarios={usuarios} onLogin={setUsuarioLogado} />
+              <Login onLogin={setUsuarioLogado} />
             </AccessLayout>
           )}
         />
@@ -48,7 +39,6 @@ function App() {
               <main className="home-page">
                 <Home
                   usuarioLogado={usuarioLogado}
-                  usuarios={usuarios}
                   onSair={() => setUsuarioLogado(null)}
                 />
               </main>
