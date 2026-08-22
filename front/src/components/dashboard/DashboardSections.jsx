@@ -26,7 +26,7 @@ export function ScheduleSection({ itens, onVerTudo }) {
   return (
     <section className="dashboard-section schedule-section" aria-labelledby="agenda-titulo">
       <header className="dashboard-section-heading">
-        <h2 id="agenda-titulo">Agenda Semanal</h2>
+        <h2 id="agenda-titulo">Próximas Avaliações</h2>
         <button type="button" onClick={onVerTudo}>Ver tudo</button>
       </header>
       <div className="schedule-list" id="agenda-lista" tabIndex="-1">
@@ -65,7 +65,7 @@ export function SubjectProgressSection({ materias }) {
       <h2 id="progresso-titulo">Progresso por Matéria</h2>
       <div className="subject-progress-grid">
         {materias.map((materia) => (
-          <article className="subject-progress" key={materia.nome}>
+          <article className="subject-progress" key={materia.id ?? materia.nome}>
             <div><strong>{materia.nome}</strong><span>{materia.percentual}%</span></div>
             <div className="subject-progress-bar" aria-label={`${materia.percentual}% concluído`}>
               <span className={`progress-${materia.tom}`} style={{ width: `${materia.percentual}%` }} />
@@ -73,6 +73,9 @@ export function SubjectProgressSection({ materias }) {
             <small>{materia.resumo}</small>
           </article>
         ))}
+        {materias.length === 0 && (
+          <p className="empty-state">Nenhuma disciplina cadastrada neste período.</p>
+        )}
       </div>
     </section>
   )

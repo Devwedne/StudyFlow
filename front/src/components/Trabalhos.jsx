@@ -1,91 +1,176 @@
-import { useMemo, useRef, useState } from 'react'
-import { AlertTriangle, CalendarDays, CheckCircle2, ChevronLeft, ChevronRight, Circle, Clock3, Pencil, Plus } from 'lucide-react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import {
+  AlertTriangle,
+  CalendarDays,
+  CheckCircle2,
+  Circle,
+  Clock3,
+  Pencil,
+  Plus,
+} from 'lucide-react'
 import { useNavigate } from 'react-router'
 import ManagementLayout from './layout/ManagementLayout'
-
-const trabalhosIniciais = [
-  {
-    id: 1,
-    titulo: 'Resenha Crítica - Dom Casmurro',
-    materia: 'Literatura Brasileira',
-    entrega: 'Hoje, 23:59',
-    prioridade: 'Alta',
-    status: 'Em Andamento',
-  },
-  {
-    id: 2,
-    titulo: 'Projeto Final de Software',
-    materia: 'Engenharia de Software II',
-    entrega: '15 Nov 2023',
-    prioridade: 'Alta',
-    status: 'Pendente',
-  },
-  {
-    id: 3,
-    titulo: 'Lista de Exercícios 04',
-    materia: 'Cálculo III',
-    entrega: '18 Nov 2023',
-    prioridade: 'Média',
-    status: 'Em Andamento',
-  },
-]
-
-const prazos = [
-  { periodo: 'HOJE', dia: '23', titulo: 'Resenha Crítica', materia: 'Literatura Brasileira', urgente: true },
-  { periodo: 'NOV', dia: '15', titulo: 'Projeto Final', materia: 'Eng. de Software II' },
-  { periodo: 'NOV', dia: '18', titulo: 'Lista Exercícios 04', materia: 'Cálculo III' },
-]
+import usePeriodoLetivo from '../hooks/usePeriodoLetivo'
+import {
+  atualizarTrabalho as atualizarTrabalhoNaApi,
+  cadastrarTrabalho as cadastrarTrabalhoNaApi,
+  excluirTrabalho as excluirTrabalhoNaApi,
+  listarMaterias,
+  listarTrabalhos,
+} from '../services/api'
 
 const formularioVazio = {
   titulo: '',
-  materia: '',
-  entrega: '',
-  prioridade: 'Média',
-  status: 'Pendente',
+  materiaId: '',
+  dataEntrega: '',
+  prioridade: 'media',
+  status: 'pendente',
+}
+
+const rotulosPrioridade = { baixa: 'Baixa', media: 'Média', alta: 'Alta' }
+const rotulosStatus = {
+  pendente: 'Pendente',
+  andamento: 'Em Andamento',
+  atrasado: 'Em atraso',
+  concluido: 'Concluído',
 }
 
 function classeStatus(status) {
-  if (status === 'Concluído') return 'complete'
-  if (status === 'Em Andamento') return 'progress'
+  if (status === 'concluido') return 'complete'
+  if (status === 'andamento') return 'progress'
+  if (status === 'atrasado') return 'overdue'
   return 'pending'
 }
 
 function iconeStatus(status) {
-  if (status === 'Concluído') return CheckCircle2
-  if (status === 'Em Andamento') return Clock3
+  if (status === 'concluido') return CheckCircle2
+  if (status === 'andamento') return Clock3
+  if (status === 'atrasado') return AlertTriangle
   return Circle
 }
 
+function formatarData(data) {
+  if (!data) return '—'
+  return new Intl.DateTimeFormat('pt-BR').format(new Date(`${data}T12:00:00`))
+}
+
+function obterHojeLocal() {
+  const agora = new Date()
+  return new Date(agora.getTime() - agora.getTimezoneOffset() * 60_000)
+    .toISOString()
+    .slice(0, 10)
+}
+
+function obterStatusExibicao(trabalho) {
+  const atrasado = trabalho.status !== 'concluido'
+    && (trabalho.atrasado ?? trabalho.dataEntrega < obterHojeLocal())
+  return atrasado ? 'atrasado' : trabalho.status
+}
+
+function partesDaData(data) {
+  const dataLocal = new Date(`${data}T12:00:00`)
+  return {
+    mes: new Intl.DateTimeFormat('pt-BR', { month: 'short' }).format(dataLocal).replace('.', '').toUpperCase(),
+    dia: String(dataLocal.getDate()).padStart(2, '0'),
+  }
+}
+
 function Trabalhos({ usuarioLogado, onSair }) {
-  const [trabalhos, setTrabalhos] = useState(trabalhosIniciais)
+  const [trabalhos, setTrabalhos] = useState([])
+  const [materias, setMaterias] = useState([])
   const [busca, setBusca] = useState('')
-  const [filtro, setFiltro] = useState('Todos')
+  const [filtro, setFiltro] = useState('todos')
   const [modalAberto, setModalAberto] = useState(false)
   const [editandoId, setEditandoId] = useState(null)
   const [formulario, setFormulario] = useState(formularioVazio)
   const [erro, setErro] = useState('')
+  const [erroPagina, setErroPagina] = useState('')
   const [mensagem, setMensagem] = useState('')
+  const [periodoCarregadoId, setPeriodoCarregadoId] = useState(null)
+  const [salvando, setSalvando] = useState(false)
+  const [excluindo, setExcluindo] = useState(false)
   const primeiroCampoRef = useRef(null)
   const navigate = useNavigate()
+  const {
+    carregandoPeriodo,
+    periodoAtual,
+    periodoSelecionado,
+    periodoSelecionadoId,
+  } = usePeriodoLetivo()
+
+  useEffect(() => {
+    if (!periodoSelecionadoId) return undefined
+
+    let ativo = true
+
+    Promise.all([
+      listarTrabalhos(usuarioLogado.id, periodoSelecionadoId),
+      listarMaterias(usuarioLogado.id, periodoSelecionadoId),
+    ])
+      .then(([dadosTrabalhos, dadosMaterias]) => {
+        if (!ativo) return
+        setTrabalhos(dadosTrabalhos)
+        setMaterias(dadosMaterias)
+        setErroPagina('')
+      })
+      .catch((error) => {
+        if (ativo) setErroPagina(error.message)
+      })
+      .finally(() => {
+        if (ativo) setPeriodoCarregadoId(periodoSelecionadoId)
+      })
+
+    return () => {
+      ativo = false
+    }
+  }, [periodoSelecionadoId, usuarioLogado.id])
+
+  const carregando = carregandoPeriodo || (
+    Boolean(periodoSelecionadoId)
+    && periodoCarregadoId !== periodoSelecionadoId
+  )
+
+  const materiasAtuais = useMemo(
+    () => materias.filter((materia) => materia.periodoId === periodoSelecionadoId),
+    [materias, periodoSelecionadoId],
+  )
+  const trabalhosAtuais = useMemo(
+    () => trabalhos.filter((trabalho) => trabalho.periodoId === periodoSelecionadoId),
+    [periodoSelecionadoId, trabalhos],
+  )
 
   const trabalhosFiltrados = useMemo(() => {
     const termo = busca.trim().toLocaleLowerCase('pt-BR')
 
-    return trabalhos.filter((trabalho) => {
-      const correspondeBusca = [trabalho.titulo, trabalho.materia, trabalho.entrega]
+    return trabalhosAtuais.filter((trabalho) => {
+      const correspondeBusca = [trabalho.titulo, trabalho.materiaNome, formatarData(trabalho.dataEntrega)]
         .some((valor) => valor.toLocaleLowerCase('pt-BR').includes(termo))
-      const correspondeFiltro = filtro === 'Todos'
-        || (filtro === 'Pendentes' && trabalho.status === 'Pendente')
-        || (filtro === 'Em Andamento' && trabalho.status === 'Em Andamento')
-        || (filtro === 'Concluídos' && trabalho.status === 'Concluído')
-
+      const correspondeFiltro = filtro === 'todos' || obterStatusExibicao(trabalho) === filtro
       return correspondeBusca && correspondeFiltro
     })
-  }, [busca, filtro, trabalhos])
+  }, [busca, filtro, trabalhosAtuais])
+
+  const resumo = useMemo(() => {
+    const concluidos = trabalhosAtuais.filter((trabalho) => trabalho.status === 'concluido').length
+    return {
+      pendentes: trabalhosAtuais.filter((trabalho) => obterStatusExibicao(trabalho) === 'pendente').length,
+      andamento: trabalhosAtuais.filter((trabalho) => obterStatusExibicao(trabalho) === 'andamento').length,
+      atrasados: trabalhosAtuais.filter((trabalho) => obterStatusExibicao(trabalho) === 'atrasado').length,
+      concluidos,
+      percentual: trabalhosAtuais.length > 0 ? Math.round((concluidos / trabalhosAtuais.length) * 100) : 0,
+    }
+  }, [trabalhosAtuais])
+
+  const proximosPrazos = useMemo(() => trabalhosAtuais
+    .filter((trabalho) => (
+      trabalho.status !== 'concluido'
+      && trabalho.dataEntrega >= obterHojeLocal()
+    ))
+    .slice(0, 3), [trabalhosAtuais])
 
   function abrirNovoTrabalho() {
     setEditandoId(null)
-    setFormulario(formularioVazio)
+    setFormulario({ ...formularioVazio, materiaId: materiasAtuais[0] ? String(materiasAtuais[0].id) : '' })
     setErro('')
     setModalAberto(true)
     window.setTimeout(() => primeiroCampoRef.current?.focus(), 0)
@@ -95,8 +180,8 @@ function Trabalhos({ usuarioLogado, onSair }) {
     setEditandoId(trabalho.id)
     setFormulario({
       titulo: trabalho.titulo,
-      materia: trabalho.materia,
-      entrega: trabalho.entrega,
+      materiaId: String(trabalho.materiaId),
+      dataEntrega: trabalho.dataEntrega,
       prioridade: trabalho.prioridade,
       status: trabalho.status,
     })
@@ -105,38 +190,72 @@ function Trabalhos({ usuarioLogado, onSair }) {
     window.setTimeout(() => primeiroCampoRef.current?.focus(), 0)
   }
 
-  function salvarTrabalho(event) {
+  async function salvarTrabalho(event) {
     event.preventDefault()
     const titulo = formulario.titulo.trim()
-    const materia = formulario.materia.trim()
-    const entrega = formulario.entrega.trim()
+    const materiaId = Number(formulario.materiaId)
 
-    if (!titulo || !materia || !entrega) {
+    if (!titulo || !materiaId || !formulario.dataEntrega) {
       setErro('Preencha trabalho, matéria e data de entrega.')
       primeiroCampoRef.current?.focus()
       return
     }
 
-    if (editandoId) {
-      setTrabalhos((atuais) => atuais.map((trabalho) => (
-        trabalho.id === editandoId ? { ...trabalho, ...formulario, titulo, materia, entrega } : trabalho
-      )))
-      setMensagem('Trabalho atualizado com sucesso.')
-    } else {
-      setTrabalhos((atuais) => [
-        ...atuais,
-        {
-          id: Math.max(0, ...atuais.map((trabalho) => trabalho.id)) + 1,
-          ...formulario,
-          titulo,
-          materia,
-          entrega,
-        },
-      ])
-      setMensagem('Trabalho adicionado com sucesso.')
+    if (
+      periodoAtual
+      && (
+        formulario.dataEntrega < periodoAtual.dataInicio
+        || formulario.dataEntrega > periodoAtual.dataTermino
+      )
+    ) {
+      setErro(
+        `A entrega deve ficar entre ${formatarData(periodoAtual.dataInicio)} e ${formatarData(periodoAtual.dataTermino)}.`,
+      )
+      return
     }
 
-    setModalAberto(false)
+    const dados = {
+      titulo,
+      materiaId,
+      dataEntrega: formulario.dataEntrega,
+      prioridade: formulario.prioridade,
+      status: formulario.status,
+    }
+    setSalvando(true)
+
+    try {
+      if (editandoId) {
+        const atualizado = await atualizarTrabalhoNaApi(usuarioLogado.id, editandoId, dados)
+        setTrabalhos((atuais) => atuais.map((trabalho) => trabalho.id === atualizado.id ? atualizado : trabalho))
+        setMensagem('Trabalho atualizado com sucesso.')
+      } else {
+        const novo = await cadastrarTrabalhoNaApi(usuarioLogado.id, dados)
+        setTrabalhos((atuais) => [...atuais, novo].sort((a, b) => a.dataEntrega.localeCompare(b.dataEntrega)))
+        setMensagem('Trabalho adicionado com sucesso.')
+      }
+      setModalAberto(false)
+      setErro('')
+    } catch (error) {
+      setErro(error.message)
+    } finally {
+      setSalvando(false)
+    }
+  }
+
+  async function excluirTrabalho() {
+    if (!editandoId) return
+    setExcluindo(true)
+
+    try {
+      await excluirTrabalhoNaApi(usuarioLogado.id, editandoId)
+      setTrabalhos((atuais) => atuais.filter((trabalho) => trabalho.id !== editandoId))
+      setModalAberto(false)
+      setMensagem('Trabalho removido.')
+    } catch (error) {
+      setErro(error.message)
+    } finally {
+      setExcluindo(false)
+    }
   }
 
   return (
@@ -144,206 +263,159 @@ function Trabalhos({ usuarioLogado, onSair }) {
       paginaAtiva="trabalhos"
       usuarioLogado={usuarioLogado}
       onSair={onSair}
-      topbar={{
-        titulo: 'Trabalhos',
-        placeholder: 'Buscar trabalhos...',
-        busca,
-        onBusca: setBusca,
-      }}
+      topbar={{ titulo: 'Trabalhos', placeholder: 'Buscar trabalhos...', busca, onBusca: setBusca }}
     >
-
-        <section className="management-canvas work-page" aria-labelledby="meus-trabalhos-titulo">
-          <div className="work-main-column">
-            <header className="work-page-heading">
-              <div>
-                <h1 id="meus-trabalhos-titulo">Meus Trabalhos</h1>
-                <p>Gerencie e acompanhe o status das suas entregas acadêmicas.</p>
-              </div>
-              <button className="management-primary-button" type="button" onClick={abrirNovoTrabalho}>
-                <Plus aria-hidden="true" />
-                Novo Trabalho
-              </button>
-            </header>
-
-            <div className="work-filter-row" aria-label="Filtrar trabalhos">
-              {['Todos', 'Pendentes', 'Em Andamento', 'Concluídos'].map((opcao) => (
-                <button
-                  className={filtro === opcao ? 'active' : ''}
-                  type="button"
-                  aria-pressed={filtro === opcao}
-                  key={opcao}
-                  onClick={() => setFiltro(opcao)}
-                >
-                  {opcao}
-                </button>
-              ))}
+      <section className="management-canvas work-page" aria-labelledby="meus-trabalhos-titulo">
+        <div className="work-main-column">
+          <header className="work-page-heading">
+            <div>
+              <h1 id="meus-trabalhos-titulo">Meus Trabalhos</h1>
+              <p>Entregas acadêmicas vinculadas ao período {periodoSelecionado}.</p>
             </div>
+            <button className="management-primary-button" type="button" disabled={materiasAtuais.length === 0} onClick={abrirNovoTrabalho}>
+              <Plus aria-hidden="true" />
+              Novo Trabalho
+            </button>
+          </header>
 
-            <section className="work-table-card" aria-label="Lista de trabalhos">
-              <div className="work-table-scroll">
-                <div className="work-table-row work-table-header" role="row">
-                  <span>Trabalho</span>
-                  <span>Matéria</span>
-                  <span>Data de<br />Entrega</span>
-                  <span>Prioridade</span>
-                  <span>Status</span>
-                  <span>Ações</span>
-                </div>
+          {erroPagina && <p className="management-form-error" role="alert">{erroPagina}</p>}
+          {carregando && <p className="management-empty-result" role="status">Carregando trabalhos...</p>}
+          {!carregando && materiasAtuais.length === 0 && (
+            <p className="management-empty-result">Cadastre uma matéria neste período antes de adicionar trabalhos.</p>
+          )}
 
-                {trabalhosFiltrados.map((trabalho) => (
+          <div className="work-filter-row" aria-label="Filtrar trabalhos">
+            {[
+              ['todos', 'Todos'],
+              ['pendente', 'Pendentes'],
+              ['andamento', 'Em Andamento'],
+              ['atrasado', 'Em atraso'],
+              ['concluido', 'Concluídos'],
+            ].map(([valor, rotulo]) => (
+              <button className={filtro === valor ? 'active' : ''} type="button" aria-pressed={filtro === valor} key={valor} onClick={() => setFiltro(valor)}>
+                {rotulo}
+              </button>
+            ))}
+          </div>
+
+          <section className="work-table-card" aria-label="Lista de trabalhos">
+            <div className="work-table-scroll">
+              <div className="work-table-row work-table-header" role="row">
+                <span>Trabalho</span><span>Matéria</span><span>Data de<br />Entrega</span>
+                <span>Prioridade</span><span>Status</span><span>Ações</span>
+              </div>
+
+              {trabalhosFiltrados.map((trabalho) => {
+                const statusExibicao = obterStatusExibicao(trabalho)
+                const IconeStatus = iconeStatus(statusExibicao)
+                return (
                   <article className="work-table-row work-table-data" key={trabalho.id}>
                     <strong>{trabalho.titulo}</strong>
-                    <span>{trabalho.materia}</span>
-                    <time className={trabalho.entrega.startsWith('Hoje') ? 'deadline-today' : ''}>{trabalho.entrega}</time>
-                    <span className={`work-priority priority-${trabalho.prioridade.toLocaleLowerCase('pt-BR').normalize('NFD').replace(/[\u0300-\u036f]/g, '')}`}>
-                      {trabalho.prioridade !== 'Baixa' && (
-                        <AlertTriangle aria-hidden="true" />
-                      )}
-                      {trabalho.prioridade}
+                    <span>{trabalho.materiaNome}</span>
+                    <time>{formatarData(trabalho.dataEntrega)}</time>
+                    <span className={`work-priority priority-${trabalho.prioridade}`}>
+                      {trabalho.prioridade !== 'baixa' && <AlertTriangle aria-hidden="true" />}
+                      {rotulosPrioridade[trabalho.prioridade]}
                     </span>
-                    <span className={`work-status status-${classeStatus(trabalho.status)}`}>
-                      {(() => {
-                        const IconeStatus = iconeStatus(trabalho.status)
-                        return <IconeStatus aria-hidden="true" />
-                      })()}
-                      {trabalho.status}
+                    <span className={`work-status status-${classeStatus(statusExibicao)}`}>
+                      <IconeStatus aria-hidden="true" />{rotulosStatus[statusExibicao]}
                     </span>
                     <button className="work-edit-button" type="button" aria-label={`Editar ${trabalho.titulo}`} onClick={() => abrirEdicao(trabalho)}>
                       <Pencil aria-hidden="true" />
                     </button>
                   </article>
-                ))}
+                )
+              })}
 
-                {trabalhosFiltrados.length === 0 && (
-                  <p className="management-empty-result" role="status">Nenhum trabalho corresponde à busca.</p>
-                )}
-              </div>
+              {!carregando && trabalhosFiltrados.length === 0 && (
+                <p className="management-empty-result" role="status">Nenhum trabalho encontrado neste período.</p>
+              )}
+            </div>
+            <footer className="work-table-footer">
+              <span>Mostrando {trabalhosFiltrados.length} de {trabalhosAtuais.length} trabalhos</span>
+            </footer>
+          </section>
+        </div>
 
-              <footer className="work-table-footer">
-                <span>Mostrando 1 a {trabalhosFiltrados.length} de 12 trabalhos</span>
-                <nav aria-label="Paginação dos trabalhos">
-                  <button type="button" aria-label="Página anterior"><ChevronLeft aria-hidden="true" /></button>
-                  <button className="active" type="button" aria-current="page">1</button>
-                  <button type="button">2</button>
-                  <button type="button">3</button>
-                  <button type="button" aria-label="Próxima página"><ChevronRight aria-hidden="true" /></button>
-                </nav>
-              </footer>
-            </section>
-          </div>
+        <aside className="work-summary-column" aria-label="Resumo de trabalhos">
+          <section className="work-summary-card">
+            <h2>Visão Geral</h2>
+            <div className="work-overview-grid">
+              <article><span><Circle aria-hidden="true" /> Pendentes</span><strong>{resumo.pendentes}</strong></article>
+              <article className="overview-progress"><span><Clock3 aria-hidden="true" /> Em Andamento</span><strong>{resumo.andamento}</strong></article>
+              <article className="overview-overdue"><span><AlertTriangle aria-hidden="true" /> Em atraso</span><strong>{resumo.atrasados}</strong></article>
+              <article className="overview-complete">
+                <span><CheckCircle2 aria-hidden="true" /> Concluídos</span><strong>{resumo.concluidos}</strong>
+                <div className="completion-ring" aria-label={`${resumo.percentual}% concluído`} style={{ background: `conic-gradient(#10b981 0 ${resumo.percentual}%, #d1fae5 ${resumo.percentual}% 100%)` }}>
+                  <small>{resumo.percentual}%</small>
+                </div>
+              </article>
+            </div>
+          </section>
 
-          <aside className="work-summary-column" aria-label="Resumo de trabalhos">
-            <section className="work-summary-card">
-              <h2>Visão Geral</h2>
-              <div className="work-overview-grid">
-                <article>
-                  <span><Circle aria-hidden="true" /> Pendentes</span>
-                  <strong>5</strong>
-                </article>
-                <article className="overview-progress">
-                  <span><Clock3 aria-hidden="true" /> Em Andamento</span>
-                  <strong>3</strong>
-                </article>
-                <article className="overview-complete">
-                  <span><CheckCircle2 aria-hidden="true" /> Concluídos este mês</span>
-                  <strong>12</strong>
-                  <div className="completion-ring" aria-label="75% concluído">
-                    <small>75%</small>
-                  </div>
-                </article>
-              </div>
-            </section>
-
-            <section className="work-summary-card deadlines-card">
-              <header>
-                <h2>Próximos Prazos</h2>
-                <button type="button" onClick={() => setFiltro('Todos')}>Ver todos</button>
-              </header>
-              <div className="deadline-list">
-                {prazos.map((prazo) => (
-                  <article className={prazo.urgente ? 'urgent' : ''} key={`${prazo.periodo}-${prazo.dia}`}>
-                    <time>
-                      <small>{prazo.periodo}</small>
-                      <strong>{prazo.dia}</strong>
-                    </time>
-                    <span>
-                      <strong>{prazo.titulo}</strong>
-                      <small>{prazo.materia}</small>
-                    </span>
+          <section className="work-summary-card deadlines-card">
+            <header><h2>Próximos Prazos</h2><button type="button" onClick={() => setFiltro('todos')}>Ver todos</button></header>
+            <div className="deadline-list">
+              {proximosPrazos.map((trabalho) => {
+                const data = partesDaData(trabalho.dataEntrega)
+                return (
+                  <article key={trabalho.id}>
+                    <time><small>{data.mes}</small><strong>{data.dia}</strong></time>
+                    <span><strong>{trabalho.titulo}</strong><small>{trabalho.materiaNome}</small></span>
                   </article>
-                ))}
-              </div>
-              <button className="open-calendar-button" type="button" onClick={() => navigate('/home')}>
-                <CalendarDays aria-hidden="true" />
-                Abrir Agenda
-              </button>
-            </section>
-          </aside>
-        </section>
+                )
+              })}
+              {proximosPrazos.length === 0 && <p className="empty-state">Nenhum prazo neste período.</p>}
+            </div>
+            <button className="open-calendar-button" type="button" onClick={() => navigate('/home')}>
+              <CalendarDays aria-hidden="true" />Abrir Dashboard
+            </button>
+          </section>
+        </aside>
+      </section>
+
       {modalAberto && (
-        <div className="management-modal-backdrop" role="presentation" onMouseDown={() => setModalAberto(false)}>
+        <div className="management-modal-backdrop" role="presentation" onMouseDown={() => !salvando && setModalAberto(false)}>
           <section className="management-modal" role="dialog" aria-modal="true" aria-labelledby="trabalho-modal-titulo" onMouseDown={(event) => event.stopPropagation()}>
             <h2 id="trabalho-modal-titulo">{editandoId ? 'Editar Trabalho' : 'Novo Trabalho'}</h2>
-            <p>Preencha os dados da entrega acadêmica.</p>
+            <p>O trabalho será associado ao período {periodoSelecionado}.</p>
             <form onSubmit={salvarTrabalho} noValidate>
               <label>
-                Trabalho
-                <input
-                  ref={primeiroCampoRef}
-                  value={formulario.titulo}
-                  onChange={(event) => setFormulario((atual) => ({ ...atual, titulo: event.target.value }))}
-                  placeholder="Título do trabalho"
-                />
+                <span className="management-field-label">Trabalho <span aria-hidden="true">*</span></span>
+                <input ref={primeiroCampoRef} value={formulario.titulo} onChange={(event) => setFormulario((atual) => ({ ...atual, titulo: event.target.value }))} placeholder="Título do trabalho" />
               </label>
               <label>
-                Matéria
-                <input
-                  value={formulario.materia}
-                  onChange={(event) => setFormulario((atual) => ({ ...atual, materia: event.target.value }))}
-                  placeholder="Disciplina"
-                />
+                <span className="management-field-label">Matéria <span aria-hidden="true">*</span></span>
+                <select value={formulario.materiaId} onChange={(event) => setFormulario((atual) => ({ ...atual, materiaId: event.target.value }))}>
+                  {materiasAtuais.map((materia) => <option value={materia.id} key={materia.id}>{materia.nome}</option>)}
+                </select>
               </label>
               <label>
-                Data de entrega
+                <span className="management-field-label">Data de entrega <span aria-hidden="true">*</span></span>
                 <input
-                  value={formulario.entrega}
-                  onChange={(event) => setFormulario((atual) => ({ ...atual, entrega: event.target.value }))}
-                  placeholder="Ex.: 18 Nov 2023"
+                  type="date"
+                  min={periodoAtual?.dataInicio || undefined}
+                  max={periodoAtual?.dataTermino || undefined}
+                  value={formulario.dataEntrega}
+                  onChange={(event) => setFormulario((atual) => ({ ...atual, dataEntrega: event.target.value }))}
                 />
               </label>
               <div className="management-form-row">
-                <label>
-                  Prioridade
-                  <select value={formulario.prioridade} onChange={(event) => setFormulario((atual) => ({ ...atual, prioridade: event.target.value }))}>
-                    <option>Baixa</option>
-                    <option>Média</option>
-                    <option>Alta</option>
-                  </select>
-                </label>
-                <label>
-                  Status
-                  <select value={formulario.status} onChange={(event) => setFormulario((atual) => ({ ...atual, status: event.target.value }))}>
-                    <option>Pendente</option>
-                    <option>Em Andamento</option>
-                    <option>Concluído</option>
-                  </select>
-                </label>
+                <label>Prioridade<select value={formulario.prioridade} onChange={(event) => setFormulario((atual) => ({ ...atual, prioridade: event.target.value }))}><option value="baixa">Baixa</option><option value="media">Média</option><option value="alta">Alta</option></select></label>
+                <label>Status<select value={formulario.status} onChange={(event) => setFormulario((atual) => ({ ...atual, status: event.target.value }))}><option value="pendente">Pendente</option><option value="andamento">Em Andamento</option><option value="concluido">Concluído</option></select></label>
               </div>
               {erro && <p className="management-form-error" role="alert">{erro}</p>}
               <div className="management-modal-actions">
-                <button type="button" onClick={() => setModalAberto(false)}>Cancelar</button>
-                <button type="submit">Salvar</button>
+                {editandoId && <button type="button" disabled={salvando || excluindo} onClick={excluirTrabalho}>{excluindo ? 'Excluindo...' : 'Excluir'}</button>}
+                <button type="button" disabled={salvando || excluindo} onClick={() => setModalAberto(false)}>Cancelar</button>
+                <button type="submit" disabled={salvando || excluindo}>{salvando ? 'Salvando...' : 'Salvar'}</button>
               </div>
             </form>
           </section>
         </div>
       )}
 
-      {mensagem && (
-        <button className="management-toast" type="button" aria-live="polite" onClick={() => setMensagem('')}>
-          {mensagem}
-        </button>
-      )}
+      {mensagem && <button className="management-toast" type="button" aria-live="polite" onClick={() => setMensagem('')}>{mensagem}</button>}
     </ManagementLayout>
   )
 }

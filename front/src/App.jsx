@@ -7,14 +7,70 @@ import Materias from './components/Materias'
 import Trabalhos from './components/Trabalhos'
 import AccessLayout from './components/layout/AccessLayout'
 import ProtectedRoute from './components/layout/ProtectedRoute'
+import PeriodoLetivoProvider from './contexts/PeriodoLetivoProvider'
 import './App.css'
 
+const CHAVE_SESSAO = 'studyflow-usuario'
+
+function lerUsuario(storage) {
+  try {
+    const valorSalvo = storage.getItem(CHAVE_SESSAO)
+    if (!valorSalvo) return null
+
+    const usuario = JSON.parse(valorSalvo)
+    const usuarioValido = usuario
+      && typeof usuario.id === 'number'
+      && typeof usuario.nome === 'string'
+      && typeof usuario.email === 'string'
+
+    if (!usuarioValido) {
+      storage.removeItem(CHAVE_SESSAO)
+      return null
+    }
+
+    return usuario
+  } catch {
+    storage.removeItem(CHAVE_SESSAO)
+    return null
+  }
+}
+
+function recuperarSessao() {
+  return lerUsuario(localStorage) ?? lerUsuario(sessionStorage)
+}
+
 function App() {
-  const [usuarioLogado, setUsuarioLogado] = useState(null)
+  const [usuarioLogado, setUsuarioLogado] = useState(recuperarSessao)
+
+  function entrar(usuario, lembrar) {
+    const usuarioPublico = {
+      id: usuario.id,
+      nome: usuario.nome,
+      email: usuario.email,
+      ...(usuario.criadoEm ? { criadoEm: usuario.criadoEm } : {}),
+    }
+
+    localStorage.removeItem(CHAVE_SESSAO)
+    sessionStorage.removeItem(CHAVE_SESSAO)
+
+    const storage = lembrar ? localStorage : sessionStorage
+    storage.setItem(CHAVE_SESSAO, JSON.stringify(usuarioPublico))
+    setUsuarioLogado(usuarioPublico)
+  }
+
+  function sair() {
+    localStorage.removeItem(CHAVE_SESSAO)
+    sessionStorage.removeItem(CHAVE_SESSAO)
+    setUsuarioLogado(null)
+  }
 
   return (
     <BrowserRouter>
-      <Routes>
+      <PeriodoLetivoProvider
+        key={usuarioLogado?.id ?? 'sem-usuario'}
+        usuarioLogado={usuarioLogado}
+      >
+        <Routes>
         <Route path="/" element={<Navigate to="/login" replace />} />
         <Route
           path="/cadastro"
@@ -28,7 +84,7 @@ function App() {
           path="/login"
           element={(
             <AccessLayout>
-              <Login onLogin={setUsuarioLogado} />
+              <Login onLogin={entrar} />
             </AccessLayout>
           )}
         />
@@ -39,7 +95,7 @@ function App() {
               <main className="home-page">
                 <Home
                   usuarioLogado={usuarioLogado}
-                  onSair={() => setUsuarioLogado(null)}
+                  onSair={sair}
                 />
               </main>
             </ProtectedRoute>
@@ -52,7 +108,7 @@ function App() {
               <main className="home-page">
                 <Materias
                   usuarioLogado={usuarioLogado}
-                  onSair={() => setUsuarioLogado(null)}
+                  onSair={sair}
                 />
               </main>
             </ProtectedRoute>
@@ -65,14 +121,15 @@ function App() {
               <main className="home-page">
                 <Trabalhos
                   usuarioLogado={usuarioLogado}
-                  onSair={() => setUsuarioLogado(null)}
+                  onSair={sair}
                 />
               </main>
             </ProtectedRoute>
           )}
         />
         <Route path="*" element={<Navigate to="/login" replace />} />
-      </Routes>
+        </Routes>
+      </PeriodoLetivoProvider>
     </BrowserRouter>
   )
 }

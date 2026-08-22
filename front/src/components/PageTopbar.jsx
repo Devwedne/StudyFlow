@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Bell, Search, UserRound } from 'lucide-react'
+import PeriodoLetivoSelector from './PeriodoLetivoSelector'
 
 function PageTopbar({ titulo, placeholder, busca, onBusca, usuarioLogado }) {
   const [avisoAberto, setAvisoAberto] = useState(false)
@@ -22,6 +23,7 @@ function PageTopbar({ titulo, placeholder, busca, onBusca, usuarioLogado }) {
       </div>
 
       <div className="dashboard-actions">
+        <PeriodoLetivoSelector />
         <button
           className="notification-button"
           type="button"
