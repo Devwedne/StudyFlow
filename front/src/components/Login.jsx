@@ -49,7 +49,7 @@ function Login({ onLogin }) {
       if (lembrar) localStorage.setItem('studyflow-email', emailLimpo)
       else localStorage.removeItem('studyflow-email')
 
-      onLogin(usuario)
+      onLogin(usuario, lembrar)
       navigate('/home')
     } catch (error) {
       setErros({ formulario: error.message })

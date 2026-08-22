@@ -844,7 +844,7 @@ button.dashboard-avatar-button {
 
 .statistics-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 16px;
 }
 
@@ -1575,7 +1575,76 @@ button.dashboard-avatar-button {
 .management-heading-actions {
   display: flex;
   align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
   gap: 16px;
+}
+
+.global-period-control {
+  display: flex;
+  align-items: center;
+  flex: 0 0 auto;
+  gap: 4px;
+}
+
+.global-period-selector {
+  min-height: 38px;
+  display: flex;
+  align-items: center;
+  flex: 0 0 auto;
+  gap: 8px;
+  padding: 3px 7px 3px 10px;
+  border: 1px solid #c7c4d8;
+  border-radius: 8px;
+  color: #464555;
+  background: #fff;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.global-period-selector > svg {
+  width: 16px;
+  height: 16px;
+  color: #3525cd;
+}
+
+.global-period-selector select {
+  min-height: 30px;
+  padding: 4px 26px 4px 8px;
+  border: 0;
+  border-radius: 6px;
+  outline: 0;
+  color: #0b1c30;
+  background: #eff4ff;
+  font: inherit;
+  cursor: pointer;
+}
+
+.global-period-selector select:focus {
+  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.12);
+}
+
+.global-period-add {
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  padding: 0;
+  border: 1px solid #c7c4d8;
+  border-radius: 8px;
+  color: #3525cd;
+  background: #fff;
+  cursor: pointer;
+}
+
+.global-period-add:hover {
+  background: #eff4ff;
+}
+
+.global-period-add svg {
+  width: 16px;
+  height: 16px;
 }
 
 .segmented-filter {
@@ -1776,6 +1845,30 @@ button.dashboard-avatar-button {
   color: #3525cd;
 }
 
+.subject-metrics .subject-average {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.subject-metrics .subject-result {
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.subject-metrics .subject-result.subject-approved {
+  color: #067647;
+}
+
+.subject-metrics .subject-result.subject-reprovado {
+  color: #b42318;
+}
+
+.subject-grade-metrics {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-top: 8px;
+}
+
 .subject-progress-heading {
   display: flex;
   align-items: center;
@@ -1822,8 +1915,10 @@ button.dashboard-avatar-button {
   display: flex;
   align-items: center;
   gap: 4px;
+  overflow: hidden;
   font-size: 12px;
   line-height: 16px;
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
 
@@ -2079,6 +2174,11 @@ button.dashboard-avatar-button {
   background: #e7f8f1;
 }
 
+.status-overdue {
+  color: #93000a;
+  background: #ffdad6;
+}
+
 .work-edit-button {
   width: 34px;
   height: 34px;
@@ -2186,6 +2286,12 @@ button.dashboard-avatar-button {
 .work-overview-grid article.overview-progress {
   color: #006c49;
   background: #c5f6e5;
+}
+
+.work-overview-grid article.overview-overdue {
+  grid-column: 1 / -1;
+  color: #93000a;
+  background: #ffdad6;
 }
 
 .work-overview-grid article.overview-complete {
@@ -2401,10 +2507,99 @@ button.dashboard-avatar-button {
   gap: 14px;
 }
 
+.management-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.management-calculated-field {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 8px;
+  color: #464555;
+  background: #eff4ff;
+  font-size: 13px;
+}
+
+.management-calculated-field strong {
+  color: #3525cd;
+}
+
+.subject-exams-list {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid #e4e3eb;
+}
+
+.subject-exams-list h3,
+.subject-exams-list p {
+  margin: 0;
+}
+
+.subject-exams-list p {
+  margin-top: 8px;
+  color: #797687;
+  font-size: 13px;
+}
+
+.subject-exams-list ul {
+  max-height: 180px;
+  display: grid;
+  gap: 8px;
+  margin: 10px 0 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.subject-exams-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: #eff4ff;
+}
+
+.subject-exams-list li > span {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.subject-exams-list li small {
+  color: #464555;
+}
+
+.subject-exams-list li button {
+  border: 0;
+  color: #b42318;
+  background: transparent;
+  cursor: pointer;
+}
+
 .management-modal label {
   color: #0b1c30;
   font-size: 13px;
   font-weight: 600;
+}
+
+.management-modal label small {
+  color: #797687;
+  font-weight: 400;
+}
+
+.management-field-label {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 3px;
+}
+
+.management-field-label > span {
+  color: #b42318;
 }
 
 .management-modal input,
@@ -2523,6 +2718,10 @@ button.dashboard-avatar-button {
     flex-direction: column;
   }
 
+  .global-period-selector > span {
+    display: none;
+  }
+
   .segmented-filter {
     width: 100%;
     overflow-x: auto;
@@ -2554,6 +2753,15 @@ button.dashboard-avatar-button {
 }
 
 @media (max-width: 480px) {
+  .global-period-selector {
+    gap: 4px;
+    padding-left: 6px;
+  }
+
+  .global-period-selector > svg {
+    display: none;
+  }
+
   .management-topbar .notification-button {
     display: none;
   }

@@ -39,6 +39,7 @@ export async function autenticarUsuario(email: string, senha: string) {
     id: usuario.id,
     nome: usuario.nome,
     email: usuario.email,
+    periodoAtualId: usuario.periodoAtualId,
     criadoEm: usuario.criadoEm,
   }
 }
